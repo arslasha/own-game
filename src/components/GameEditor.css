@@ -463,6 +463,77 @@
   animation: pop 0.2s ease-out;
 }
 
+.link-loading-badge {
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--cyan-blue);
+  padding: 12px 20px;
+  background: #EFF6FF;
+  border: 2px dashed var(--dark-text);
+  border-radius: 12px;
+  display: inline-block;
+}
+
+.share-link-container {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 600px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.share-link-label {
+  font-weight: 800;
+  font-size: 15px;
+  color: var(--dark-text);
+  text-align: left;
+}
+
+.share-textarea-wrapper {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.share-textarea {
+  flex: 1;
+  height: 48px;
+  border: 3px solid var(--dark-text);
+  border-radius: 12px;
+  padding: 10px 14px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--dark-text);
+  background: var(--card-bg);
+  resize: none;
+  font-family: inherit;
+  box-shadow: 3px 3px 0px var(--dark-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.btn-copy-link {
+  white-space: nowrap;
+  padding: 12px 20px;
+}
+
+.btn-link-regenerate {
+  background: none;
+  border: none;
+  color: #6B7280;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  text-decoration: underline;
+  align-self: flex-start;
+}
+
+.btn-link-regenerate:hover {
+  color: var(--dark-text);
+}
+
 .editor-divider {
   border: 0;
   border-top: 2px dashed var(--dark-text);

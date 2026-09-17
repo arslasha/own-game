@@ -151,25 +151,31 @@ export const GameEditor = ({ config, onSaveConfig, onResetConfig, onBack, onPrev
     reader.readAsDataURL(file);
   };
 
-  // Генерация и копирование делимой ссылки
-  const handleCopyShareLink = async () => {
+  const [generatedLink, setGeneratedLink] = useState('');
+  const [isGeneratingLink, setIsGeneratingLink] = useState(false);
+
+  // Генерация делимой ссылки
+  const handleGenerateShareLink = async () => {
     const encoded = encodeConfigToUrlHash(editedConfig);
     if (!encoded) {
       alert("Ошибка создания ссылки!");
       return;
     }
+    setIsGeneratingLink(true);
+    setGeneratedLink('');
     const fullShareUrl = `${window.location.origin}${window.location.pathname}#data=${encoded}`;
-    if (onShowToast) {
-      onShowToast("Создаем короткую ссылку... ⏳");
-    }
     const finalUrl = await shortenUrlViaTinyUrl(fullShareUrl);
-    const copied = await copyToClipboard(finalUrl);
+    setGeneratedLink(finalUrl);
+    setIsGeneratingLink(false);
+  };
+
+  const handleCopyGeneratedLink = async () => {
+    if (!generatedLink) return;
+    const copied = await copyToClipboard(generatedLink);
     if (copied) {
-      if (onShowToast) {
-        onShowToast("Короткая ссылка скопирована! 🔗");
-      }
-    } else {
-      alert("Не удалось скопировать ссылку автоматически.");
+      setCopiedMessage("Скопировано! 📋");
+      setTimeout(() => setCopiedMessage(''), 3000);
+      if (onShowToast) onShowToast("Ссылка скопирована! 🔗");
     }
   };
 
@@ -499,9 +505,37 @@ export const GameEditor = ({ config, onSaveConfig, onResetConfig, onBack, onPrev
             </p>
 
             <div className="share-action-box">
-              <button className="btn-main" onClick={handleCopyShareLink}>
-                🔗 Скопировать ссылку на мою игру
-              </button>
+              {!generatedLink && !isGeneratingLink && (
+                <button className="btn-main" onClick={handleGenerateShareLink}>
+                  ✨ Сгенерировать ссылку на игру
+                </button>
+              )}
+
+              {isGeneratingLink && (
+                <div className="link-loading-badge">
+                  ⏳ Создаем короткую ссылку...
+                </div>
+              )}
+
+              {generatedLink && (
+                <div className="share-link-container animate-pop">
+                  <label className="share-link-label">Ваша ссылка готова:</label>
+                  <div className="share-textarea-wrapper">
+                    <textarea
+                      readOnly
+                      value={generatedLink}
+                      className="share-textarea"
+                      onClick={(e) => e.target.select()}
+                    />
+                    <button className="btn-main btn-copy-link" onClick={handleCopyGeneratedLink}>
+                      {copiedMessage || "📋 Скопировать"}
+                    </button>
+                  </div>
+                  <button className="btn-link-regenerate" onClick={handleGenerateShareLink}>
+                    🔄 Перегенерировать ссылку
+                  </button>
+                </div>
+              )}
             </div>
 
             <hr className="editor-divider" />
