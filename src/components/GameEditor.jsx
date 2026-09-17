@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { THEME_PRESETS } from '../utils/themePresets';
-import { encodeConfigToUrlHash, exportConfigAsJson, DEFAULT_CONFIG } from '../utils/gameStorage';
+import { encodeConfigToUrlHash, shortenUrlViaTinyUrl, exportConfigAsJson, DEFAULT_CONFIG } from '../utils/gameStorage';
 import './GameEditor.css';
 
 export const GameEditor = ({ config, onSaveConfig, onResetConfig, onBack, onPreviewTheme, onShowToast }) => {
@@ -152,20 +152,24 @@ export const GameEditor = ({ config, onSaveConfig, onResetConfig, onBack, onPrev
   };
 
   // Генерация и копирование делимой ссылки
-  const handleCopyShareLink = () => {
+  const handleCopyShareLink = async () => {
     const encoded = encodeConfigToUrlHash(editedConfig);
     if (!encoded) {
       alert("Ошибка создания ссылки!");
       return;
     }
-    const shareUrl = `${window.location.origin}${window.location.pathname}#data=${encoded}`;
-    navigator.clipboard.writeText(shareUrl).then(() => {
+    const fullShareUrl = `${window.location.origin}${window.location.pathname}#data=${encoded}`;
+    if (onShowToast) {
+      onShowToast("Создаем короткую ссылку... ⏳");
+    }
+    const finalUrl = await shortenUrlViaTinyUrl(fullShareUrl);
+    navigator.clipboard.writeText(finalUrl).then(() => {
       if (onShowToast) {
-        onShowToast("Ссылка на вашу игру скопирована! 🔗");
+        onShowToast("Короткая ссылка скопирована! 🔗");
       }
     }).catch(err => {
       console.error("Не удалось скопировать:", err);
-      alert("Не удалось скопировать ссылку автоматически. Скопируйте из консоли.");
+      alert("Не удалось скопировать ссылку автоматически.");
     });
   };
 

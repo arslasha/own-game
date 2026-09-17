@@ -8,6 +8,7 @@ import {
   saveGameConfigToStorage,
   clearSavedGameConfig,
   encodeConfigToUrlHash,
+  shortenUrlViaTinyUrl,
   DEFAULT_CONFIG
 } from './utils/gameStorage';
 
@@ -128,12 +129,14 @@ export default function App() {
     setTimeout(() => setShareToast(''), 3500);
   };
 
-  const handleShareCurrentGame = () => {
+  const handleShareCurrentGame = async () => {
     const encoded = encodeConfigToUrlHash(gameConfig);
     if (encoded) {
-      const shareUrl = `${window.location.origin}${window.location.pathname}#data=${encoded}`;
-      navigator.clipboard.writeText(shareUrl).then(() => {
-        showToast("Ссылка на вашу игру скопирована! 🔗");
+      const fullShareUrl = `${window.location.origin}${window.location.pathname}#data=${encoded}`;
+      showToast("Создаем короткую ссылку... ⏳");
+      const finalUrl = await shortenUrlViaTinyUrl(fullShareUrl);
+      navigator.clipboard.writeText(finalUrl).then(() => {
+        showToast("Короткая ссылка скопирована! 🔗");
       });
     }
   };

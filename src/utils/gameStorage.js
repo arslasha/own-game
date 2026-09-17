@@ -30,6 +30,28 @@ export function encodeConfigToUrlHash(config) {
   }
 }
 
+// Сокращение URL через бесплатный API TinyURL (с таймаутом и фоллбэком на исходный URL)
+export async function shortenUrlViaTinyUrl(longUrl) {
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 4000); // 4 сек таймаут
+
+    const apiUrl = `https://tinyurl.com/api-create.php?url=${encodeURIComponent(longUrl)}`;
+    const res = await fetch(apiUrl, { signal: controller.signal });
+    clearTimeout(timeoutId);
+
+    if (res.ok) {
+      const shortUrl = await res.text();
+      if (shortUrl && shortUrl.startsWith('http')) {
+        return shortUrl.trim();
+      }
+    }
+  } catch (e) {
+    console.warn("Не удалось сократить ссылку через TinyURL, используется полная ссылка:", e);
+  }
+  return longUrl;
+}
+
 // Функция декодирования из URL обратно в объект (поддерживает LZString и старый Base64)
 export function decodeConfigFromUrlHash(rawStr) {
   try {
