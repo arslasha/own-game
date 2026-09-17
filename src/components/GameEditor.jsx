@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { THEME_PRESETS } from '../utils/themePresets';
-import { encodeConfigToUrlHash, shortenUrlViaTinyUrl, exportConfigAsJson, DEFAULT_CONFIG } from '../utils/gameStorage';
+import { encodeConfigToUrlHash, shortenUrlViaTinyUrl, copyToClipboard, exportConfigAsJson, DEFAULT_CONFIG } from '../utils/gameStorage';
 import './GameEditor.css';
 
 export const GameEditor = ({ config, onSaveConfig, onResetConfig, onBack, onPreviewTheme, onShowToast }) => {
@@ -163,14 +163,14 @@ export const GameEditor = ({ config, onSaveConfig, onResetConfig, onBack, onPrev
       onShowToast("Создаем короткую ссылку... ⏳");
     }
     const finalUrl = await shortenUrlViaTinyUrl(fullShareUrl);
-    navigator.clipboard.writeText(finalUrl).then(() => {
+    const copied = await copyToClipboard(finalUrl);
+    if (copied) {
       if (onShowToast) {
         onShowToast("Короткая ссылка скопирована! 🔗");
       }
-    }).catch(err => {
-      console.error("Не удалось скопировать:", err);
+    } else {
       alert("Не удалось скопировать ссылку автоматически.");
-    });
+    }
   };
 
   // Импорт файла JSON

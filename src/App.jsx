@@ -9,6 +9,7 @@ import {
   clearSavedGameConfig,
   encodeConfigToUrlHash,
   shortenUrlViaTinyUrl,
+  copyToClipboard,
   DEFAULT_CONFIG
 } from './utils/gameStorage';
 
@@ -135,9 +136,12 @@ export default function App() {
       const fullShareUrl = `${window.location.origin}${window.location.pathname}#data=${encoded}`;
       showToast("Создаем короткую ссылку... ⏳");
       const finalUrl = await shortenUrlViaTinyUrl(fullShareUrl);
-      navigator.clipboard.writeText(finalUrl).then(() => {
+      const copied = await copyToClipboard(finalUrl);
+      if (copied) {
         showToast("Короткая ссылка скопирована! 🔗");
-      });
+      } else {
+        showToast("Не удалось скопировать ссылку.");
+      }
     }
   };
 

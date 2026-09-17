@@ -52,6 +52,36 @@ export async function shortenUrlViaTinyUrl(longUrl) {
   return longUrl;
 }
 
+// Надежная функция копирования текста в буфер обмена (работает и после async/await, и на любых сайтах)
+export async function copyToClipboard(text) {
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch (err) {
+    console.warn("navigator.clipboard не сработал, используем fallback:", err);
+  }
+
+  // Fallback через скрытый textarea и execCommand('copy')
+  try {
+    const textArea = document.createElement("textarea");
+    textArea.value = text;
+    textArea.style.position = "fixed";
+    textArea.style.left = "-999999px";
+    textArea.style.top = "-999999px";
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+    const successful = document.execCommand('copy');
+    textArea.remove();
+    return successful;
+  } catch (err) {
+    console.error("Ошибка при копировании через fallback:", err);
+    return false;
+  }
+}
+
 // Функция декодирования из URL обратно в объект (поддерживает LZString и старый Base64)
 export function decodeConfigFromUrlHash(rawStr) {
   try {
