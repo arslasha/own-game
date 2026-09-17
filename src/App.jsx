@@ -49,6 +49,7 @@ export default function App() {
       teams,
     };
     sessionStorage.setItem('game_session_state', JSON.stringify(state));
+    setHasSavedGame(true);
   }, [currentScreen, playedQuestions, scores, teams]);
 
   // Применение темы оформления

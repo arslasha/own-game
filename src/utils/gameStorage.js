@@ -15,23 +15,39 @@ export const DEFAULT_CONFIG = {
   categories: defaultCategories
 };
 
-// Функция кодирования UTF-8 строки в Base64 для URL
+import LZString from 'lz-string';
+
+// Функция кодирования строки в сжатый формат для URL
 export function encodeConfigToUrlHash(config) {
   try {
     const jsonStr = JSON.stringify(config);
-    // Использование encodeURIComponent + unescape для корректной работы с кириллицей и эмодзи
-    const base64Str = btoa(unescape(encodeURIComponent(jsonStr)));
-    return base64Str;
+    // Используем lz-string с безопасной кодировкой для URI компонентов
+    const compressedStr = LZString.compressToEncodedURIComponent(jsonStr);
+    return compressedStr;
   } catch (err) {
     console.error("Ошибка при кодировании конфигурации в URL:", err);
     return null;
   }
 }
 
-// Функция декодирования Base64 из URL обратно в объект
-export function decodeConfigFromUrlHash(base64Str) {
+// Функция декодирования из URL обратно в объект (поддерживает LZString и старый Base64)
+export function decodeConfigFromUrlHash(rawStr) {
   try {
-    const jsonStr = decodeURIComponent(escape(atob(base64Str)));
+    // 1. Пробуем декодировать через lz-string
+    const decompressed = LZString.decompressFromEncodedURIComponent(rawStr);
+    if (decompressed) {
+      const config = JSON.parse(decompressed);
+      if (config && Array.isArray(config.categories)) {
+        return config;
+      }
+    }
+  } catch (err) {
+    // Игнорируем ошибку и пробуем фоллбэк на старый base64
+  }
+
+  try {
+    // 2. Фоллбэк: простая base64 строка (для старых ссылок)
+    const jsonStr = decodeURIComponent(escape(atob(rawStr)));
     const config = JSON.parse(jsonStr);
     if (config && Array.isArray(config.categories)) {
       return config;
