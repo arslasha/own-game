@@ -1,0 +1,315 @@
+:root {
+  --lemon-yellow: #FFF44F;
+  --pantone-yellow: #F3BF09;
+  --cyan-blue: #00B7EB;
+  --bright-pink: #FF69B4;
+  --dark-text: #111827;
+  --white: #FFFFFF;
+  --card-bg: #F8FAFC;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  font-family: 'Montserrat', 'Segoe UI', system-ui, -apple-system, sans-serif;
+}
+
+body {
+  background-color: var(--cyan-blue);
+  color: var(--dark-text);
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.container {
+  width: 1400px;
+  background: var(--white);
+  border-radius: 20px;
+  border: 4px solid var(--dark-text);
+  box-shadow: 8px 8px 0px var(--dark-text);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 720px;
+  position: relative;
+}
+
+/* HEADER */
+header {
+  background-color: var(--lemon-yellow);
+  border-bottom: 4px solid var(--dark-text);
+  padding: 15px 30px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+header h1 {
+  font-size: 28px;
+  font-weight: 900;
+  color: var(--header-text);
+  text-transform: uppercase;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.btn-header-edit {
+  background: var(--white);
+  color: var(--dark-text);
+  padding: 6px 14px;
+  border-radius: 30px;
+  font-weight: 800;
+  border: 2px solid var(--dark-text);
+  font-size: 14px;
+  cursor: pointer;
+  box-shadow: 2px 2px 0px var(--dark-text);
+  transition: all 0.1s ease;
+}
+
+.btn-header-edit:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0px var(--dark-text);
+}
+
+.start-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-top: 10px;
+}
+
+.btn-share {
+  background: var(--white);
+  color: var(--dark-text);
+  height: 100%;
+  font-size: 20px;
+  font-weight: 800;
+  padding: 14px 24px;
+  border-radius: 14px;
+  border: 3px solid var(--dark-text);
+  box-shadow: 4px 4px 0px var(--dark-text);
+  cursor: pointer;
+  transition: all 0.1s ease;
+  text-transform: uppercase;
+}
+
+.btn-share:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 6px 6px 0px var(--dark-text);
+}
+
+.start-toast {
+  background: var(--bright-pink);
+  color: var(--white);
+  padding: 10px 24px;
+  border-radius: 30px;
+  font-weight: 800;
+  border: 3px solid var(--dark-text);
+  box-shadow: 4px 4px 0px var(--dark-text);
+  font-size: 15px;
+}
+
+
+/* КНОПКИ */
+.btn-main {
+  background: var(--bright-pink);
+  color: var(--btn-text);
+  font-size: 20px;
+  font-weight: 800;
+  padding: 14px 32px;
+  border-radius: 14px;
+  border: 3px solid var(--dark-text);
+  box-shadow: 4px 4px 0px var(--dark-text);
+  cursor: pointer;
+  transition: all 0.1s ease;
+  text-transform: uppercase;
+}
+
+.btn-main:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 6px 6px 0px var(--dark-text);
+}
+
+.btn-main:active {
+  transform: translate(2px, 2px);
+  box-shadow: 2px 2px 0px var(--dark-text);
+}
+
+.btn-blue {
+  background: var(--cyan-blue);
+  color: var(--bg-text);
+}
+
+/* КНОПКА ПРОДОЛЖИТЬ — отличается от btn-main цветом, соответствует теме */
+.btn-continue {
+  background: var(--cyan-blue);
+  color: var(--bg-text, #fff);
+}
+
+/* СТАРТОВЫЙ ЭКРАН */
+.start-screen {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: var(--lemon-yellow);
+  color: var(--header-text);
+  gap: 24px;
+  padding: 40px 20px;
+  text-align: center;
+}
+
+.start-title {
+  font-size: 42px;
+  font-weight: 900;
+  color: var(--header-text);
+}
+
+.start-subtitle {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--header-text);
+}
+
+/* СЕТКА ВВОДА ИМЕН КОМАНД */
+.team-inputs-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 16px;
+  max-width: 720px;
+  width: 100%;
+}
+
+.team-input-card {
+  background: var(--white);
+  border: 3px solid var(--dark-text);
+  border-radius: 12px;
+  padding: 12px 16px;
+  box-shadow: 4px 4px 0px var(--dark-text);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.team-input-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+
+.btn-remove-team {
+  background: none;
+  border: 2px solid var(--dark-text);
+  border-radius: 6px;
+  width: 24px;
+  height: 24px;
+  font-size: 16px;
+  font-weight: 900;
+  cursor: pointer;
+  color: var(--dark-text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.1s ease;
+  line-height: 1;
+  padding-bottom: 3px;
+}
+
+.btn-remove-team:hover {
+  background: var(--bright-pink);
+  color: var(--btn-text);
+}
+
+.btn-add-team {
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  font-weight: 800;
+  cursor: pointer;
+  color: var(--dark-text);
+  border-style: dashed;
+  background: transparent;
+  min-height: 80px;
+  transition: all 0.15s ease;
+}
+
+.btn-add-team:hover {
+  background: var(--white);
+  transform: translate(-2px, -2px);
+  box-shadow: 6px 6px 0px var(--dark-text);
+}
+
+.team-input-label {
+  font-size: 13px;
+  font-weight: 800;
+  color: #111827;
+  text-transform: uppercase;
+}
+
+.team-input-field {
+  width: 100%;
+  border: 2px solid var(--dark-text);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--dark-text);
+  outline: none;
+  background: var(--card-bg);
+  transition: all 0.1s ease;
+}
+
+.team-input-field:focus {
+  border-color: var(--cyan-blue);
+  background: var(--white);
+}
+
+/* ГЛОБАЛЬНОЕ ВСПЛЫВАЮЩЕЕ УВЕДОМЛЕНИЕ (ПРАВЫЙ НИЖНИЙ УГОЛ) */
+.global-toast-notification {
+  position: fixed;
+  bottom: 30px;
+  right: 30px;
+  z-index: 99999999;
+  background: var(--bright-pink);
+  color: var(--btn-text);
+  border: 3px solid #111827;
+  border-radius: 14px;
+  padding: 16px 26px;
+  font-size: 16px;
+  font-weight: 800;
+  box-shadow: 6px 6px 0px #111827;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  pointer-events: none;
+  animation: slideUpRight 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+.toast-icon {
+  font-size: 22px;
+}
+
+@keyframes slideUpRight {
+  0% {
+    transform: translateY(80px) scale(0.9);
+    opacity: 0;
+  }
+
+  100% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}

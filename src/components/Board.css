@@ -1,0 +1,59 @@
+.board-view {
+  flex: 1;
+  padding: 20px;
+  display: flex;
+}
+
+.board-grid {
+  display: grid;
+  grid-template-columns: 200px repeat(5, 1fr);
+  gap: 10px;
+  width: 100%;
+}
+
+.category-cell {
+  background: var(--lemon-yellow);
+  color: var(--header-text);
+  border: 3px solid var(--dark-text);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px;
+  font-weight: 800;
+  font-size: 16px;
+  text-align: center;
+  box-shadow: 3px 3px 0px var(--dark-text);
+  text-transform: uppercase;
+}
+
+.point-cell {
+  background: var(--white);
+  border: 3px solid var(--dark-text);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26px;
+  font-weight: 900;
+  color: var(--cyan-blue);
+  cursor: pointer;
+  box-shadow: 3px 3px 0px var(--dark-text);
+  transition: all 0.1s ease;
+}
+
+.point-cell:hover:not(.played) {
+  background: var(--lemon-yellow);
+  color: var(--header-text);
+  transform: translate(-2px, -2px);
+  box-shadow: 5px 5px 0px var(--dark-text);
+}
+
+.point-cell.played {
+  background: #E2E8F0;
+  color: #94A3B8;
+  border-color: #CBD5E1;
+  box-shadow: none;
+  cursor: default;
+  text-decoration: line-through;
+}
