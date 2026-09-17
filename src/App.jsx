@@ -130,18 +130,30 @@ export default function App() {
     setTimeout(() => setShareToast(''), 3500);
   };
 
+  const [shareModalUrl, setShareModalUrl] = useState('');
+  const [isGeneratingShareModal, setIsGeneratingShareModal] = useState(false);
+  const [modalCopiedMsg, setModalCopiedMsg] = useState('');
+
   const handleShareCurrentGame = async () => {
     const encoded = encodeConfigToUrlHash(gameConfig);
-    if (encoded) {
-      const fullShareUrl = `${window.location.origin}${window.location.pathname}#data=${encoded}`;
-      showToast("Создаем короткую ссылку... ⏳");
-      const finalUrl = await shortenUrlViaTinyUrl(fullShareUrl);
-      const copied = await copyToClipboard(finalUrl);
-      if (copied) {
-        showToast("Короткая ссылка скопирована! 🔗");
-      } else {
-        showToast("Не удалось скопировать ссылку.");
-      }
+    if (!encoded) return;
+    setIsGeneratingShareModal(true);
+    setShareModalUrl('');
+    setModalCopiedMsg('');
+
+    const fullShareUrl = `${window.location.origin}${window.location.pathname}#data=${encoded}`;
+    const finalUrl = await shortenUrlViaTinyUrl(fullShareUrl);
+    setShareModalUrl(finalUrl);
+    setIsGeneratingShareModal(false);
+  };
+
+  const handleCopyModalLink = async () => {
+    if (!shareModalUrl) return;
+    const copied = await copyToClipboard(shareModalUrl);
+    if (copied) {
+      setModalCopiedMsg('Скопировано! 📋');
+      setTimeout(() => setModalCopiedMsg(''), 3000);
+      showToast('Ссылка скопирована! 🔗');
     }
   };
 
@@ -159,6 +171,13 @@ export default function App() {
         <header>
           <h1>{gameConfig.title || "Своя Игра"}</h1>
           <div className="header-right">
+            <button
+              className="btn-header-edit btn-share-header"
+              onClick={handleShareCurrentGame}
+              title="Поделиться игрой"
+            >
+              🔗 Поделиться
+            </button>
             <span className="theme-tag">{gameConfig.subtitle || ""}</span>
             {currentScreen === 'start' && (
               <button
@@ -183,6 +202,48 @@ export default function App() {
             )}
           </div>
         </header>
+
+        {/* МОДАЛЬНОЕ ОКНО ДЛЯ ШЕРИНГА ССЫЛКИ */}
+        {(isGeneratingShareModal || shareModalUrl) && (
+          <div className="modal-overlay" onClick={() => {
+            setIsGeneratingShareModal(false);
+            setShareModalUrl('');
+          }}>
+            <div className="modal-card animate-pop" onClick={e => e.stopPropagation()}>
+              <div className="modal-header">
+                <h3>🔗 Ссылка на вашу игру</h3>
+                <button
+                  className="modal-close-btn"
+                  onClick={() => {
+                    setIsGeneratingShareModal(false);
+                    setShareModalUrl('');
+                  }}
+                >×</button>
+              </div>
+
+              <div className="modal-body">
+                {isGeneratingShareModal ? (
+                  <div className="modal-loading">⏳ Создаем короткую ссылку...</div>
+                ) : (
+                  <>
+                    <p className="modal-hint">Отправьте эту ссылку друзьям, чтобы они открыли эту же игру:</p>
+                    <div className="share-textarea-wrapper">
+                      <textarea
+                        readOnly
+                        value={shareModalUrl}
+                        className="share-textarea"
+                        onClick={(e) => e.target.select()}
+                      />
+                      <button className="btn-main btn-copy-link" onClick={handleCopyModalLink}>
+                        {modalCopiedMsg || "📋 Скопировать"}
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* ЕКРАН ПРИВЕТСТВИЯ С НАСТРОЙКОЙ КОМАНД */}
         {currentScreen === 'start' && (
