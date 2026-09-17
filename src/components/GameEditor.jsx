@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { THEME_PRESETS } from '../utils/themePresets';
 import { encodeConfigToUrlHash, shortenUrlViaTinyUrl, copyToClipboard, exportConfigAsJson, DEFAULT_CONFIG } from '../utils/gameStorage';
+import { uploadMediaToCloud } from '../utils/supabaseStorage';
 import './GameEditor.css';
 
 export const GameEditor = ({ config, onSaveConfig, onResetConfig, onBack, onPreviewTheme, onShowToast }) => {
@@ -135,20 +136,32 @@ export const GameEditor = ({ config, onSaveConfig, onResetConfig, onBack, onPrev
     });
   };
 
-  // Загрузка локального файла (картинки или видео) в base64
-  const handleFileUpload = (catIdx, qIdx, field, file) => {
+  const [uploadingFileKey, setUploadingFileKey] = useState(null);
+
+  // Загрузка медиафайла с авто-сжатием картинки и оптимизацией
+  const handleFileUpload = async (catIdx, qIdx, field, file) => {
     if (!file) return;
     const isVideo = field.includes('video');
-    const maxSize = isVideo ? 25 * 1024 * 1024 : 5 * 1024 * 1024;
+    const maxSize = isVideo ? 30 * 1024 * 1024 : 10 * 1024 * 1024;
     if (file.size > maxSize) {
-      alert(`Файл слишком большой! Максимальный размер: ${isVideo ? '25МБ' : '5МБ'}.`);
+      alert(`Файл слишком большой! Максимальный размер: ${isVideo ? '30МБ' : '10МБ'}.`);
       return;
     }
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      handleQuestionChange(catIdx, qIdx, field, e.target.result);
-    };
-    reader.readAsDataURL(file);
+
+    const uploadKey = `${catIdx}-${qIdx}-${field}`;
+    setUploadingFileKey(uploadKey);
+    if (onShowToast) onShowToast("Обрабатываем и оптимизируем файл... ⏳");
+
+    try {
+      const mediaUrl = await uploadMediaToCloud(file, isVideo ? 'videos' : 'images');
+      handleQuestionChange(catIdx, qIdx, field, mediaUrl);
+      if (onShowToast) onShowToast("Файл успешно прикреплен! ✨");
+    } catch (err) {
+      console.error("Ошибка прикрепления файла:", err);
+      alert("Не удалось обработать файл.");
+    } finally {
+      setUploadingFileKey(null);
+    }
   };
 
   const [generatedLink, setGeneratedLink] = useState('');
@@ -455,11 +468,16 @@ export const GameEditor = ({ config, onSaveConfig, onResetConfig, onBack, onPrev
                               />
                               <div className="media-file-actions">
                                 <label className="btn-file-custom">
-                                  <span>{qObj[item.key] ? '🔄 Заменить файл' : '📁 Загрузить файл'}</span>
+                                  <span>
+                                    {uploadingFileKey === `${selectedCategoryIdx}-${qIdx}-${item.key}`
+                                      ? '⏳ Обработка...'
+                                      : (qObj[item.key] ? '🔄 Заменить файл' : '📁 Загрузить файл')}
+                                  </span>
                                   <input
                                     type="file"
                                     accept={item.isVideo ? "video/*" : "image/*"}
                                     style={{ display: 'none' }}
+                                    disabled={uploadingFileKey === `${selectedCategoryIdx}-${qIdx}-${item.key}`}
                                     onChange={(e) => handleFileUpload(selectedCategoryIdx, qIdx, item.key, e.target.files[0])}
                                   />
                                 </label>
