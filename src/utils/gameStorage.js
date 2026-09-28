@@ -110,7 +110,41 @@ export function decodeConfigFromUrlHash(rawStr) {
   return null;
 }
 
-// Загрузка конфигурации: URL hash -> localStorage -> DEFAULT_CONFIG
+// Загрузка конфигурации: URL #game=ID -> URL #data=HASH -> localStorage -> DEFAULT_CONFIG
+export async function loadGameConfigAsync() {
+  const hash = window.location.hash;
+  if (hash && hash.includes("game=")) {
+    const gameId = hash.split("game=")[1];
+    if (gameId) {
+      const { loadGameConfigFromCloud } = await import('./supabaseStorage');
+      const cloudConfig = await loadGameConfigFromCloud(gameId);
+      if (cloudConfig) return cloudConfig;
+    }
+  }
+
+  if (hash && hash.includes("data=")) {
+    const rawData = hash.split("data=")[1];
+    if (rawData) {
+      const decoded = decodeConfigFromUrlHash(rawData);
+      if (decoded) return decoded;
+    }
+  }
+
+  const saved = localStorage.getItem("game_custom_config");
+  if (saved) {
+    try {
+      const parsed = JSON.parse(saved);
+      if (parsed && Array.isArray(parsed.categories)) {
+        return parsed;
+      }
+    } catch (e) {
+      console.error("Ошибка парсинга localStorage:", e);
+    }
+  }
+
+  return DEFAULT_CONFIG;
+}
+
 export function loadGameConfig() {
   const hash = window.location.hash;
   if (hash && hash.includes("data=")) {

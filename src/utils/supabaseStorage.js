@@ -100,7 +100,6 @@ export async function uploadMediaToCloud(file, folder = 'media') {
     console.error("Ошибка при обработке файла:", err);
   }
 
-  // 3. Умный фоллбэк: клиентское Canvas-сжатие картинок в мини-Base64
   return new Promise((resolve) => {
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -114,4 +113,53 @@ export async function uploadMediaToCloud(file, folder = 'media') {
       reader.readAsDataURL(file);
     }
   });
+}
+export async function saveGameConfigToCloud(config) {
+  try {
+    if (!supabase) return null;
+
+    const jsonStr = JSON.stringify(config);
+    const gameId = `game_${Date.now()}_${Math.random().toString(36).substring(2, 7)}.json`;
+    const blob = new Blob([jsonStr], { type: 'application/json' });
+    const file = new File([blob], gameId, { type: 'application/json' });
+
+    const { data, error } = await supabase.storage
+      .from(BUCKET_NAME)
+      .upload(`games/${gameId}`, file, {
+        cacheControl: '3600',
+        upsert: true
+      });
+
+    if (!error && data) {
+      return gameId; // Возвращаем короткий ID файла игры (например: game_17100000_a1b2c.json)
+    }
+    console.warn("Ошибка выгрузки игры в Supabase:", error);
+  } catch (err) {
+    console.error("Сбой сохранения игры в облаке:", err);
+  }
+  return null;
+}
+
+// Загрузка JSON объекта игры из Supabase Storage по ID
+export async function loadGameConfigFromCloud(gameId) {
+  try {
+    if (!supabase || !gameId) return null;
+
+    const { data: publicUrlData } = supabase.storage
+      .from(BUCKET_NAME)
+      .getPublicUrl(`games/${gameId}`);
+
+    if (publicUrlData && publicUrlData.publicUrl) {
+      const res = await fetch(publicUrlData.publicUrl);
+      if (res.ok) {
+        const config = await res.json();
+        if (config && Array.isArray(config.categories)) {
+          return config;
+        }
+      }
+    }
+  } catch (err) {
+    console.error("Ошибка загрузки игры из облака:", err);
+  }
+  return null;
 }

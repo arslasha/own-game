@@ -5,6 +5,7 @@ import { Scoreboard } from './components/Scoreboard';
 import { GameEditor } from './components/GameEditor';
 import {
   loadGameConfig,
+  loadGameConfigAsync,
   saveGameConfigToStorage,
   clearSavedGameConfig,
   encodeConfigToUrlHash,
@@ -24,6 +25,15 @@ function loadSessionState() {
 
 export default function App() {
   const [gameConfig, setGameConfig] = useState(loadGameConfig);
+
+  // Загружаем игру из облака Supabase, если ссылка формата #game=ID
+  useEffect(() => {
+    if (window.location.hash.includes("game=")) {
+      loadGameConfigAsync().then(cfg => {
+        if (cfg) setGameConfig(cfg);
+      });
+    }
+  }, []);
 
   // Restore screen / played / scores from sessionStorage if present
   const _session = loadSessionState();
@@ -135,15 +145,33 @@ export default function App() {
   const [modalCopiedMsg, setModalCopiedMsg] = useState('');
 
   const handleShareCurrentGame = async () => {
-    const encoded = encodeConfigToUrlHash(gameConfig);
-    if (!encoded) return;
     setIsGeneratingShareModal(true);
     setShareModalUrl('');
     setModalCopiedMsg('');
 
-    const fullShareUrl = `${window.location.origin}${window.location.pathname}#data=${encoded}`;
-    const finalUrl = await shortenUrlViaTinyUrl(fullShareUrl);
-    setShareModalUrl(finalUrl);
+    try {
+      // 1. Пробуем сохранить весь JSON файл игры в Supabase Storage
+      const { saveGameConfigToCloud } = await import('./utils/supabaseStorage');
+      const gameCloudId = await saveGameConfigToCloud(gameConfig);
+
+      if (gameCloudId) {
+        // Успешно сохранено в облако! Создаем короткую ссылку вида https://site/#game=game_123.json
+        const cloudGameUrl = `${window.location.origin}${window.location.pathname}#game=${gameCloudId}`;
+        setShareModalUrl(cloudGameUrl);
+        setIsGeneratingShareModal(false);
+        return;
+      }
+    } catch (e) {
+      console.warn("Фоллбэк на локальный URL:", e);
+    }
+
+    // 2. Фоллбэк: если Supabase не ответил, сжимаем локально через lz-string + TinyURL
+    const encoded = encodeConfigToUrlHash(gameConfig);
+    if (encoded) {
+      const fullShareUrl = `${window.location.origin}${window.location.pathname}#data=${encoded}`;
+      const finalUrl = await shortenUrlViaTinyUrl(fullShareUrl);
+      setShareModalUrl(finalUrl);
+    }
     setIsGeneratingShareModal(false);
   };
 

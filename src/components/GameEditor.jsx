@@ -169,13 +169,32 @@ export const GameEditor = ({ config, onSaveConfig, onResetConfig, onBack, onPrev
 
   // Генерация делимой ссылки
   const handleGenerateShareLink = async () => {
+    setIsGeneratingLink(true);
+    setGeneratedLink('');
+
+    try {
+      // 1. Пробуем выгрузить полный файл конфигурации викторины в Supabase Storage
+      const { saveGameConfigToCloud } = await import('../utils/supabaseStorage');
+      const gameCloudId = await saveGameConfigToCloud(editedConfig);
+
+      if (gameCloudId) {
+        // Успешно загружено в облако! Возвращаем идеальную короткую ссылку вида http://site/#game=game_123.json
+        const cloudUrl = `${window.location.origin}${window.location.pathname}#game=${gameCloudId}`;
+        setGeneratedLink(cloudUrl);
+        setIsGeneratingLink(false);
+        return;
+      }
+    } catch (e) {
+      console.warn("Фоллбэк на локальное сжатие:", e);
+    }
+
+    // 2. Фоллбэк: если Supabase не подключен, используем lz-string + TinyURL
     const encoded = encodeConfigToUrlHash(editedConfig);
     if (!encoded) {
       alert("Ошибка создания ссылки!");
+      setIsGeneratingLink(false);
       return;
     }
-    setIsGeneratingLink(true);
-    setGeneratedLink('');
     const fullShareUrl = `${window.location.origin}${window.location.pathname}#data=${encoded}`;
     const finalUrl = await shortenUrlViaTinyUrl(fullShareUrl);
     setGeneratedLink(finalUrl);
