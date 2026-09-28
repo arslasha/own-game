@@ -13,7 +13,7 @@ export const supabase = (SUPABASE_URL && SUPABASE_ANON_KEY)
 export function compressImage(file, maxWidth = 900, maxHeight = 700, quality = 0.7) {
   return new Promise((resolve) => {
     if (!file.type.startsWith('image/')) {
-      resolve(file); // Если это не картинка, возвращаем как есть
+      resolve(file);
       return;
     }
 
@@ -30,7 +30,7 @@ export function compressImage(file, maxWidth = 900, maxHeight = 700, quality = 0
             width = maxWidth;
           } else {
             width = Math.round((width * maxHeight) / height);
-            height = maxHeight;
+            width = maxHeight;
           }
         }
 
@@ -64,25 +64,27 @@ export function compressImage(file, maxWidth = 900, maxHeight = 700, quality = 0
   });
 }
 
-// Загрузка файла в Supabase Storage (или оптимизированный Base64, если Supabase не подключен)
-export async function uploadMediaToCloud(file, folder = 'media') {
+// Загрузка файла в папочную структуру игры `games/{gameId}/media/{filename}`
+export async function uploadMediaToCloud(file, gameId = null, subfolder = 'media') {
   try {
-    // 1. Оптимизируем изображение, если это фото
     const processedFile = file.type.startsWith('image/')
       ? await compressImage(file)
       : file;
 
-    // 2. Если подключен клиент Supabase Storage
     if (supabase) {
       const fileExt = processedFile.name.split('.').pop();
       const fileName = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}.${fileExt}`;
-      const filePath = `${folder}/${fileName}`;
+      
+      // Путь: games/{gameId}/media/{fileName} или temp_media/{fileName}
+      const filePath = gameId 
+        ? `games/${gameId}/${subfolder}/${fileName}`
+        : `temp_media/${fileName}`;
 
       const { data, error } = await supabase.storage
         .from(BUCKET_NAME)
         .upload(filePath, processedFile, {
           cacheControl: '3600',
-          upsert: false
+          upsert: true
         });
 
       if (!error && data) {
@@ -100,11 +102,10 @@ export async function uploadMediaToCloud(file, folder = 'media') {
     console.error("Ошибка при обработке файла:", err);
   }
 
+  // Резервный Base64
   return new Promise((resolve) => {
     const reader = new FileReader();
-    reader.onload = (e) => {
-      resolve(e.target.result);
-    };
+    reader.onload = (e) => resolve(e.target.result);
     if (file.type.startsWith('image/')) {
       compressImage(file, 700, 500, 0.6).then(compressedFile => {
         reader.readAsDataURL(compressedFile);
@@ -114,32 +115,36 @@ export async function uploadMediaToCloud(file, folder = 'media') {
     }
   });
 }
-export async function saveGameConfigToCloud(config) {
+
+// Сохранение JSON файла игры в структуру `games/{gameId}/config.json`
+export async function saveGameConfigToCloud(config, targetGameId = null) {
   try {
     if (!supabase) return null;
 
+    const gameId = targetGameId || config.id || `game_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
     const gameConfig = {
       ...config,
+      id: gameId,
       created_at: config.created_at || Date.now(),
       last_accessed: Date.now()
     };
 
     const jsonStr = JSON.stringify(gameConfig);
-    const gameId = `game_${Date.now()}_${Math.random().toString(36).substring(2, 7)}.json`;
     const blob = new Blob([jsonStr], { type: 'application/json' });
-    const file = new File([blob], gameId, { type: 'application/json' });
+    const file = new File([blob], 'config.json', { type: 'application/json' });
+
+    const filePath = `games/${gameId}/config.json`;
 
     const { data, error } = await supabase.storage
       .from(BUCKET_NAME)
-      .upload(`games/${gameId}`, file, {
+      .upload(filePath, file, {
         cacheControl: '3600',
         upsert: true
       });
 
     if (!error && data) {
-      // Фоновый запуск проверки очистки неактивных игр
       triggerLazyCleanup();
-      return gameId; // Возвращаем короткий ID файла игры
+      return gameId; // Возвращаем ID игры (например: game_17906..._a1b2c)
     }
     console.warn("Ошибка выгрузки игры в Supabase:", error);
   } catch (err) {
@@ -148,17 +153,17 @@ export async function saveGameConfigToCloud(config) {
   return null;
 }
 
-// Обновление даты активности (last_accessed) в Supabase Storage
+// Обновление даты активности (last_accessed)
 async function updateGameActivityInCloud(gameId, config) {
   try {
     if (!supabase) return;
     const jsonStr = JSON.stringify(config);
     const blob = new Blob([jsonStr], { type: 'application/json' });
-    const file = new File([blob], gameId, { type: 'application/json' });
+    const file = new File([blob], 'config.json', { type: 'application/json' });
 
     await supabase.storage
       .from(BUCKET_NAME)
-      .upload(`games/${gameId}`, file, {
+      .upload(`games/${gameId}/config.json`, file, {
         cacheControl: '3600',
         upsert: true
       });
@@ -172,27 +177,33 @@ export async function loadGameConfigFromCloud(gameId) {
   try {
     if (!supabase || !gameId) return null;
 
-    const { data: publicUrlData } = supabase.storage
+    // 1. Сначала пробуем новую структуру: games/{gameId}/config.json
+    let publicUrlData = supabase.storage
       .from(BUCKET_NAME)
-      .getPublicUrl(`games/${gameId}`);
+      .getPublicUrl(`games/${gameId}/config.json`).data;
 
-    if (publicUrlData && publicUrlData.publicUrl) {
-      const res = await fetch(publicUrlData.publicUrl);
-      if (res.ok) {
-        const config = await res.json();
-        if (config && Array.isArray(config.categories)) {
-          // Если игра открыта, обновляем время активности (last_accessed) раз в 12 часов
-          const now = Date.now();
-          const twelveHoursMs = 12 * 60 * 60 * 1000;
-          if (!config.last_accessed || (now - config.last_accessed > twelveHoursMs)) {
-            config.last_accessed = now;
-            updateGameActivityInCloud(gameId, config);
-          }
+    let res = await fetch(publicUrlData.publicUrl);
+    
+    // 2. Фоллбек для старых файлов игры вида games/{gameId}.json
+    if (!res.ok) {
+      publicUrlData = supabase.storage
+        .from(BUCKET_NAME)
+        .getPublicUrl(`games/${gameId}`).data;
+      res = await fetch(publicUrlData.publicUrl);
+    }
 
-          // Фоновый запуск проверки очистки неактивных игр
-          triggerLazyCleanup();
-          return config;
+    if (res.ok) {
+      const config = await res.json();
+      if (config && Array.isArray(config.categories)) {
+        const now = Date.now();
+        const twelveHoursMs = 12 * 60 * 60 * 1000;
+        if (!config.last_accessed || (now - config.last_accessed > twelveHoursMs)) {
+          config.last_accessed = now;
+          updateGameActivityInCloud(gameId, config);
         }
+
+        triggerLazyCleanup();
+        return config;
       }
     }
   } catch (err) {
@@ -201,82 +212,68 @@ export async function loadGameConfigFromCloud(gameId) {
   return null;
 }
 
-// Извлечение ссылок на медиафайлы Supabase из структуры игры
-function extractMediaPathsFromConfig(config) {
-  const paths = [];
-  if (!config || !Array.isArray(config.categories)) return paths;
-
-  config.categories.forEach(cat => {
-    if (Array.isArray(cat.questions)) {
-      cat.questions.forEach(q => {
-        [q.mediaUrl, q.answerMediaUrl].forEach(url => {
-          if (typeof url === 'string' && url.includes(`/${BUCKET_NAME}/media/`)) {
-            const pathPart = url.split(`/${BUCKET_NAME}/`)[1];
-            if (pathPart) paths.push(pathPart);
-          }
-        });
-      });
-    }
-  });
-
-  return [...new Set(paths)];
-}
-
-// Вариант Б: Ленивая очистка неактивных более ttlDays (по умолчанию 30 дней) игр и их медиафайлов
+// Вариант Б: Очистка изолированных папок неактивных игр без анализа JSON
 export async function cleanOldCloudGames(ttlDays = 30) {
   try {
     if (!supabase) return;
 
-    // 1. Получаем список всех файлов игр в бакете Supabase
-    const { data: files, error } = await supabase.storage
+    // 1. Получаем список элементов в папке games
+    const { data: gameItems, error } = await supabase.storage
       .from(BUCKET_NAME)
-      .list('games', { limit: 100 });
+      .list('games', { limit: 500 });
 
-    if (error || !files || files.length === 0) return;
+    if (error || !gameItems || gameItems.length === 0) return;
 
     const now = Date.now();
     const maxAgeMs = ttlDays * 24 * 60 * 60 * 1000;
 
-    for (const fileItem of files) {
-      if (!fileItem.name || !fileItem.name.endsWith('.json')) continue;
+    for (const item of gameItems) {
+      // Поддержка папочной структуры games/{gameId}/
+      const gameFolder = item.name;
 
-      // Время последнего обновления/сохранения файла в хранилище
-      const fileDate = new Date(fileItem.updated_at || fileItem.created_at).getTime();
+      // 2. Получаем файлы внутри игры games/{gameFolder}/
+      const { data: folderContent } = await supabase.storage
+        .from(BUCKET_NAME)
+        .list(`games/${gameFolder}`, { limit: 100 });
 
+      if (!folderContent) continue;
+
+      const configFile = folderContent.find(f => f.name === 'config.json');
+      const fileDate = configFile 
+        ? new Date(configFile.updated_at || configFile.created_at).getTime()
+        : new Date(item.updated_at || item.created_at).getTime();
+
+      // Если игра неактивна более 30 дней, удаляем ВСЮ ее папку в 1 запрос!
       if (now - fileDate > maxAgeMs) {
-        console.log(`[Auto-Cleanup] Обнаружена устаревшая игра (${fileItem.name}), удаляем...`);
+        console.log(`[Auto-Cleanup] Удаляем неактивную папку игры games/${gameFolder}...`);
 
-        // Читаем конфигурацию игры для поиска связанных медиафайлов
-        const { data: publicUrlData } = supabase.storage
+        const filesToDelete = [`games/${gameFolder}/config.json`];
+
+        // Получаем файлы из папки media внутри игры
+        const { data: mediaContent } = await supabase.storage
           .from(BUCKET_NAME)
-          .getPublicUrl(`games/${fileItem.name}`);
+          .list(`games/${gameFolder}/media`, { limit: 500 });
 
-        let mediaPaths = [];
-        if (publicUrlData && publicUrlData.publicUrl) {
-          try {
-            const res = await fetch(publicUrlData.publicUrl);
-            if (res.ok) {
-              const gameConfig = await res.json();
-              mediaPaths = extractMediaPathsFromConfig(gameConfig);
-            }
-          } catch (e) {
-            console.warn(`Не удалось прочитать контент игры ${fileItem.name} при очистке:`, e);
+        if (mediaContent && mediaContent.length > 0) {
+          mediaContent.forEach(mf => {
+            if (mf.name) filesToDelete.push(`games/${gameFolder}/media/${mf.name}`);
+          });
+        }
+
+        // Также удаляем любые прямые файлы в папке игры
+        folderContent.forEach(f => {
+          if (f.name && f.name !== 'config.json') {
+            filesToDelete.push(`games/${gameFolder}/${f.name}`);
           }
-        }
+        });
 
-        // 2. Удаляем связанные медиафайлы (картинки, видео)
-        if (mediaPaths.length > 0) {
-          await supabase.storage.from(BUCKET_NAME).remove(mediaPaths);
-          console.log(`[Auto-Cleanup] Удалено ${mediaPaths.length} медиафайлов для игры ${fileItem.name}`);
-        }
-
-        // 3. Удаляем сам JSON файл игры
-        await supabase.storage.from(BUCKET_NAME).remove([`games/${fileItem.name}`]);
-        console.log(`[Auto-Cleanup] Игра ${fileItem.name} успешно удалена из облака.`);
+        // Пакетное удаление всех файлов папки за один запрос!
+        await supabase.storage.from(BUCKET_NAME).remove(filesToDelete);
+        console.log(`[Auto-Cleanup] Папка games/${gameFolder} и её файлы (${filesToDelete.length} шт.) полностью удалены.`);
       }
     }
   } catch (err) {
-    console.error("Ошибка при фоновой очистке старых игр:", err);
+    console.error("Ошибка при фоновой очистке папок старых игр:", err);
   }
 }
 
@@ -288,10 +285,8 @@ export function triggerLazyCleanup() {
 
   if (!lastCleanup || (now - parseInt(lastCleanup, 10) > oneDayMs)) {
     localStorage.setItem('own_game_last_cleanup', now.toString());
-    // Выполняем очистку асинхронно с небольшой задержкой, чтобы не замедлять загрузку игры
     setTimeout(() => {
       cleanOldCloudGames(30);
     }, 4000);
   }
 }
-

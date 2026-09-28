@@ -136,9 +136,18 @@ export const GameEditor = ({ config, onSaveConfig, onResetConfig, onBack, onPrev
     });
   };
 
+  const ensureGameId = () => {
+    let currentId = editedConfig.id;
+    if (!currentId) {
+      currentId = `game_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+      setEditedConfig(prev => ({ ...prev, id: currentId }));
+    }
+    return currentId;
+  };
+
   const [uploadingFileKey, setUploadingFileKey] = useState(null);
 
-  // Загрузка медиафайла с авто-сжатием картинки и оптимизацией
+  // Загрузка медиафайла с авто-сжатием картинки и сохранением в папку игры
   const handleFileUpload = async (catIdx, qIdx, field, file) => {
     if (!file) return;
     const isVideo = field.includes('video');
@@ -153,7 +162,8 @@ export const GameEditor = ({ config, onSaveConfig, onResetConfig, onBack, onPrev
     if (onShowToast) onShowToast("Обрабатываем и оптимизируем файл... ⏳");
 
     try {
-      const mediaUrl = await uploadMediaToCloud(file, isVideo ? 'videos' : 'images');
+      const currentGameId = ensureGameId();
+      const mediaUrl = await uploadMediaToCloud(file, currentGameId, isVideo ? 'videos' : 'images');
       handleQuestionChange(catIdx, qIdx, field, mediaUrl);
       if (onShowToast) onShowToast("Файл успешно прикреплен! ✨");
     } catch (err) {
@@ -173,12 +183,13 @@ export const GameEditor = ({ config, onSaveConfig, onResetConfig, onBack, onPrev
     setGeneratedLink('');
 
     try {
-      // 1. Пробуем выгрузить полный файл конфигурации викторины в Supabase Storage
+      const currentGameId = ensureGameId();
+      // 1. Выгружаем файл игры в структуру games/{gameId}/config.json
       const { saveGameConfigToCloud } = await import('../utils/supabaseStorage');
-      const gameCloudId = await saveGameConfigToCloud(editedConfig);
+      const gameCloudId = await saveGameConfigToCloud(editedConfig, currentGameId);
 
       if (gameCloudId) {
-        // Успешно загружено в облако! Возвращаем идеальную короткую ссылку вида http://site/#game=game_123.json
+        // Успешно загружено в облако! Возвращаем ссылку вида http://site/#game=game_123
         const cloudUrl = `${window.location.origin}${window.location.pathname}#game=${gameCloudId}`;
         setGeneratedLink(cloudUrl);
         setIsGeneratingLink(false);
