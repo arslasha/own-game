@@ -1,8 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
 
-// Дефолтные учетные данные Supabase (анонимный клиент с публичным бакетом)
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || '';
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+// Дефолтные учетные данные Supabase (анонимный публичный ключ)
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://pimfbkybqwunccgoczsi.supabase.co';
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBpbWZia3licXd1bmNjZ29jenNpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA2MjcxMTgsImV4cCI6MjEwNjIwMzExOH0.oJCoI_misfn7-cAt5PnAcOHz2RQ6sD565ZrPWGRGr98';
 const BUCKET_NAME = 'own-game-media';
 
 export const supabase = (SUPABASE_URL && SUPABASE_ANON_KEY)
