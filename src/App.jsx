@@ -3,6 +3,7 @@ import { Board } from './components/Board';
 import { QuestionView } from './components/QuestionView';
 import { Scoreboard } from './components/Scoreboard';
 import { GameEditor } from './components/GameEditor';
+import { triggerLazyCleanup } from './utils/supabaseStorage';
 import {
   loadGameConfig,
   loadGameConfigAsync,
@@ -26,8 +27,9 @@ function loadSessionState() {
 export default function App() {
   const [gameConfig, setGameConfig] = useState(loadGameConfig);
 
-  // Загружаем игру из облака Supabase, если ссылка формата #game=ID
+  // Загружаем игру из облака Supabase, если ссылка формата #game=ID, и запускаем ленивую очистку
   useEffect(() => {
+    triggerLazyCleanup();
     if (window.location.hash.includes("game=")) {
       loadGameConfigAsync().then(cfg => {
         if (cfg) setGameConfig(cfg);

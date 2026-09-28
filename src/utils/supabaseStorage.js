@@ -118,7 +118,13 @@ export async function saveGameConfigToCloud(config) {
   try {
     if (!supabase) return null;
 
-    const jsonStr = JSON.stringify(config);
+    const gameConfig = {
+      ...config,
+      created_at: config.created_at || Date.now(),
+      last_accessed: Date.now()
+    };
+
+    const jsonStr = JSON.stringify(gameConfig);
     const gameId = `game_${Date.now()}_${Math.random().toString(36).substring(2, 7)}.json`;
     const blob = new Blob([jsonStr], { type: 'application/json' });
     const file = new File([blob], gameId, { type: 'application/json' });
@@ -131,13 +137,34 @@ export async function saveGameConfigToCloud(config) {
       });
 
     if (!error && data) {
-      return gameId; // Возвращаем короткий ID файла игры (например: game_17100000_a1b2c.json)
+      // Фоновый запуск проверки очистки неактивных игр
+      triggerLazyCleanup();
+      return gameId; // Возвращаем короткий ID файла игры
     }
     console.warn("Ошибка выгрузки игры в Supabase:", error);
   } catch (err) {
     console.error("Сбой сохранения игры в облаке:", err);
   }
   return null;
+}
+
+// Обновление даты активности (last_accessed) в Supabase Storage
+async function updateGameActivityInCloud(gameId, config) {
+  try {
+    if (!supabase) return;
+    const jsonStr = JSON.stringify(config);
+    const blob = new Blob([jsonStr], { type: 'application/json' });
+    const file = new File([blob], gameId, { type: 'application/json' });
+
+    await supabase.storage
+      .from(BUCKET_NAME)
+      .upload(`games/${gameId}`, file, {
+        cacheControl: '3600',
+        upsert: true
+      });
+  } catch (e) {
+    console.warn("Не удалось обновить дату активности игры:", e);
+  }
 }
 
 // Загрузка JSON объекта игры из Supabase Storage по ID
@@ -154,6 +181,16 @@ export async function loadGameConfigFromCloud(gameId) {
       if (res.ok) {
         const config = await res.json();
         if (config && Array.isArray(config.categories)) {
+          // Если игра открыта, обновляем время активности (last_accessed) раз в 12 часов
+          const now = Date.now();
+          const twelveHoursMs = 12 * 60 * 60 * 1000;
+          if (!config.last_accessed || (now - config.last_accessed > twelveHoursMs)) {
+            config.last_accessed = now;
+            updateGameActivityInCloud(gameId, config);
+          }
+
+          // Фоновый запуск проверки очистки неактивных игр
+          triggerLazyCleanup();
           return config;
         }
       }
@@ -163,3 +200,98 @@ export async function loadGameConfigFromCloud(gameId) {
   }
   return null;
 }
+
+// Извлечение ссылок на медиафайлы Supabase из структуры игры
+function extractMediaPathsFromConfig(config) {
+  const paths = [];
+  if (!config || !Array.isArray(config.categories)) return paths;
+
+  config.categories.forEach(cat => {
+    if (Array.isArray(cat.questions)) {
+      cat.questions.forEach(q => {
+        [q.mediaUrl, q.answerMediaUrl].forEach(url => {
+          if (typeof url === 'string' && url.includes(`/${BUCKET_NAME}/media/`)) {
+            const pathPart = url.split(`/${BUCKET_NAME}/`)[1];
+            if (pathPart) paths.push(pathPart);
+          }
+        });
+      });
+    }
+  });
+
+  return [...new Set(paths)];
+}
+
+// Вариант Б: Ленивая очистка неактивных более ttlDays (по умолчанию 30 дней) игр и их медиафайлов
+export async function cleanOldCloudGames(ttlDays = 30) {
+  try {
+    if (!supabase) return;
+
+    // 1. Получаем список всех файлов игр в бакете Supabase
+    const { data: files, error } = await supabase.storage
+      .from(BUCKET_NAME)
+      .list('games', { limit: 100 });
+
+    if (error || !files || files.length === 0) return;
+
+    const now = Date.now();
+    const maxAgeMs = ttlDays * 24 * 60 * 60 * 1000;
+
+    for (const fileItem of files) {
+      if (!fileItem.name || !fileItem.name.endsWith('.json')) continue;
+
+      // Время последнего обновления/сохранения файла в хранилище
+      const fileDate = new Date(fileItem.updated_at || fileItem.created_at).getTime();
+
+      if (now - fileDate > maxAgeMs) {
+        console.log(`[Auto-Cleanup] Обнаружена устаревшая игра (${fileItem.name}), удаляем...`);
+
+        // Читаем конфигурацию игры для поиска связанных медиафайлов
+        const { data: publicUrlData } = supabase.storage
+          .from(BUCKET_NAME)
+          .getPublicUrl(`games/${fileItem.name}`);
+
+        let mediaPaths = [];
+        if (publicUrlData && publicUrlData.publicUrl) {
+          try {
+            const res = await fetch(publicUrlData.publicUrl);
+            if (res.ok) {
+              const gameConfig = await res.json();
+              mediaPaths = extractMediaPathsFromConfig(gameConfig);
+            }
+          } catch (e) {
+            console.warn(`Не удалось прочитать контент игры ${fileItem.name} при очистке:`, e);
+          }
+        }
+
+        // 2. Удаляем связанные медиафайлы (картинки, видео)
+        if (mediaPaths.length > 0) {
+          await supabase.storage.from(BUCKET_NAME).remove(mediaPaths);
+          console.log(`[Auto-Cleanup] Удалено ${mediaPaths.length} медиафайлов для игры ${fileItem.name}`);
+        }
+
+        // 3. Удаляем сам JSON файл игры
+        await supabase.storage.from(BUCKET_NAME).remove([`games/${fileItem.name}`]);
+        console.log(`[Auto-Cleanup] Игра ${fileItem.name} успешно удалена из облака.`);
+      }
+    }
+  } catch (err) {
+    console.error("Ошибка при фоновой очистке старых игр:", err);
+  }
+}
+
+// Запуск фоновой проверки не чаще 1 раза в сутки
+export function triggerLazyCleanup() {
+  const lastCleanup = localStorage.getItem('own_game_last_cleanup');
+  const now = Date.now();
+  const oneDayMs = 24 * 60 * 60 * 1000;
+
+  if (!lastCleanup || (now - parseInt(lastCleanup, 10) > oneDayMs)) {
+    localStorage.setItem('own_game_last_cleanup', now.toString());
+    // Выполняем очистку асинхронно с небольшой задержкой, чтобы не замедлять загрузку игры
+    setTimeout(() => {
+      cleanOldCloudGames(30);
+    }, 4000);
+  }
+}
+
